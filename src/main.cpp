@@ -60,6 +60,7 @@ void loop() {
 
     if(currentRSSI > RSSI_DOOR_OVERRIDE) {
       Serial.println("Ellie is close enough to open the door!");
+      // unlock_door() 
     } else if(previousRSSI != 0 and currentRSSI - previousRSSI > RSSI_INC_THRESHOLD) {
       Serial.println("Ellie is getting closer!");
       // unlock_door() 
