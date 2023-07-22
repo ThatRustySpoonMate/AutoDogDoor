@@ -1,8 +1,12 @@
 # AutoDogDoor
 
 ## Parts list:
+
  - ESP32 Development Board (WROOM-32)
    ![image](https://github.com/ThatRustySpoonMate/AutoDogDoor/assets/51020883/ab7f99fa-5d4b-4be5-beed-736737ce4eec)
+
+ - BLE Beacon (I chose this one: https://www.aliexpress.com/item/1005005060806181.html?spm=a2g0o.order_list.order_list_main.17.6a7e1802zjQ3Iw)
+   ![image](https://github.com/ThatRustySpoonMate/AutoDogDoor/assets/51020883/92abeeef-df28-4aa8-88ea-13081c13d427)
    
  - LM2596 DC-DC Power Supply
    ![image](https://github.com/ThatRustySpoonMate/AutoDogDoor/assets/51020883/4f993893-507a-4cd0-b1cc-4a27577d3a77)
