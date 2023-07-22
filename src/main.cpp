@@ -3,42 +3,38 @@
 #include <BLEUtils.h>
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
+#include "main.h"
 
-// Define private macros
-#define RELAY_PIN 4 // Pin for relay
-#define LOCKOUT_SWITCH_PIN 17 // Pin for switch
-#define LOCKOUT_SWITCH_LOCKED 0 // Switch is closed
-#define LOCKOUT_SWITCH_UNLOCKED 1 // Switch is open
+/* Define Global Vars */
 
-typedef enum {
-  door_closed = 0x00,
-  door_open = 0x01
-} DOORSTATUS;
-
-// Define Global Vars
-int SCAN_DURATION = 2; //In seconds
-int16_t RSSI_THRESHOLD = -80; // Threshold for RSSI value to determine if device is in range
-BLEScan* pBLEScan;
-uint32_t SCAN_INTERVAL = 50; // Time between scans in ms
+/* Configuration variables */
+int SCAN_DURATION = 1; //In seconds
+uint32_t SCAN_INTERVAL = 1; // Time between scans in ms
+int RSSI_INC_THRESHOLD = 5; // If RSSI increases by this amount between pings, door should be opened
+int RSSI_DOOR_OVERRIDE = -70; // Threshold for RSSI to determine if door should be opened
 uint32_t door_open_time = 10; // Time in seconds that door should be open for
 
-// Allow for us to track if RSSI is increasing (Stronger signal = Ellie closer)
-int previousRSSI = 0;
+/* Temporal variables */
+int previousRSSI = 0; // Allow for us to track if RSSI is increasing (Stronger signal = Ellie closer)
 int currentRSSI = 0;
-int RSSI_INC_THRESHOLD = 5; // Threshold for RSSI increase to determine if door should be opened
-int RSSI_DOOR_OVERRIDE = -70; // Threshold for RSSI to determine if door should be opened
-
-uint8_t door_status = 0x00; // 0x00 = closed, 0x01 = open
+uint8_t door_status = door_closed; // 0x00 = closed, 0x01 = open
 uint32_t time_of_door_open = 0; // Time in seconds that door was opened
 bool lockout_engaged = false;
+uint32_t consecutiveFalsePings = 0;
 
+BLEScan* pBLEScan;
 TaskHandle_t door_lockout_task;
 
 // Flags when ellie beacon is found
 bool pinged = false;
-uint32_t consecutiveFalsePings = 0;
 
-// Define classes
+/* Declare Functions */
+void handle_door_lock( void * parameter );
+void unlock_door();
+void lock_door();
+//void IRAM_ATTR button_pressed();
+
+/* Define classes */
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     void onResult(BLEAdvertisedDevice advertisedDevice) {
       if(advertisedDevice.getName() == "Ellie") {
@@ -49,15 +45,8 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     }
 };
 
-// Declare Functions
-void handle_door_lock( void * parameter );
-void unlock_door();
-void lock_door();
-//void IRAM_ATTR button_pressed();
 
-
-// put function declarations here:
-
+/* Define Functions */
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -101,19 +90,21 @@ void loop() {
     Serial.print("Current RSSI: "); Serial.println(currentRSSI);
 
     if(currentRSSI > RSSI_DOOR_OVERRIDE) {
-      Serial.println("Ellie is close enough to open the door!");
+      //Serial.println("Ellie is close enough to open the door!");
       if(lockout_engaged == false) {
         unlock_door();
       } 
     } else if(previousRSSI != 0 and currentRSSI - previousRSSI > RSSI_INC_THRESHOLD) {
-      Serial.println("Ellie is getting closer!");
+      //Serial.println("Ellie is getting closer!");
       if(lockout_engaged == false) {
         unlock_door();
       }
     } else if(previousRSSI != 0 and currentRSSI - previousRSSI < 0) {
-      Serial.println("Ellie is getting further away!");
+      //Serial.println("Ellie is getting further away!");
+      asm("nop");
     } else if(previousRSSI != 0){
-      Serial.println("Ellie is the same distance away!");
+      asm("nop");
+      //Serial.println("Ellie is the same distance away!");
     }
 
     previousRSSI = currentRSSI;
@@ -133,7 +124,10 @@ void loop() {
 }
 
 
-// Run on separate core
+/* Runs on separate core
+  * Handles locking and unlocking the door based on lockout switch
+  * position and door open time
+*/
 void handle_door_lock( void * parameter ) {
   for(;;) {
     // Lock door if lockout switch is closed (Locked)
