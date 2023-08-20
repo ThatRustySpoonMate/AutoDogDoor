@@ -26,6 +26,6 @@
  - ESP32 3v3 To Relay DC+
  - ESP32 Pin 17 to switch
  - ESP32 GND to other pin of switch
- - Circuit GND to Relay COM
- - Circuit POS to Cabinet Lock POS
+ - LM2596 Input GND to Relay COM
+ - LM2596 Input POS to Cabinet Lock POS
  - Cabinet Lock GND to Relay NO
