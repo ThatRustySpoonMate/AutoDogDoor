@@ -20,8 +20,9 @@
  - Male+Female XT90 connector pair (Or any of your favourite connectors)
    ![image](https://github.com/ThatRustySpoonMate/AutoDogDoor/assets/51020883/259d6a01-ff3e-4bba-afb4-1e1525d47ad4)
 
- - Pin 4 to Relay
- - GND to Relay
- - 3v3 To Relay
- - Pin 17 to switch
- - GND to other side of switch
+## Wiring Guide
+ - ESP32 Pin 4 to Relay
+ - ESP32 GND to Relay
+ - ESP32 3v3 To Relay
+ - ESP32 Pin 17 to switch
+ - ESP32 GND to other side of switch
