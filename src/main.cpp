@@ -9,7 +9,7 @@
 
 /* Configuration variables */
 int SCAN_DURATION = 1; //In seconds
-uint32_t SCAN_INTERVAL = 1; // Time between scans in ms
+uint32_t SCAN_INTERVAL = 1; // Time between scans in seconds
 int RSSI_INC_THRESHOLD = 5; // If RSSI increases by this amount between pings, door should be opened
 int RSSI_DOOR_OVERRIDE = -70; // Threshold for RSSI to determine if door should be opened
 uint32_t door_open_time = 10; // Time in seconds that door should be open for
