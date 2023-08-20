@@ -21,8 +21,8 @@
    ![image](https://github.com/ThatRustySpoonMate/AutoDogDoor/assets/51020883/259d6a01-ff3e-4bba-afb4-1e1525d47ad4)
 
 ## Wiring Guide
- - ESP32 Pin 4 to Relay
- - ESP32 GND to Relay
- - ESP32 3v3 To Relay
+ - ESP32 Pin 4 to Relay IN
+ - ESP32 GND to Relay DC-
+ - ESP32 3v3 To Relay DC+
  - ESP32 Pin 17 to switch
- - ESP32 GND to other side of switch
+ - ESP32 GND to other pin of switch
