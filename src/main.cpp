@@ -86,9 +86,9 @@ void setup() {
   pBLEScan->setInterval(100);
   pBLEScan->setWindow(99);  // less or equal setInterval value
 
-  //setCpuFrequencyMhz(80);
-  //Serial.print("CPU: "); Serial.print(getCpuFrequencyMhz()); Serial.println("MHz");
-  //Serial.print("APB: "); Serial.print(getApbFrequency()); Serial.println("Hz");
+  setCpuFrequencyMhz(80);
+  Serial.print("CPU: "); Serial.print(getCpuFrequencyMhz()); Serial.println("MHz");
+  Serial.print("APB: "); Serial.print(getApbFrequency()); Serial.println("Hz");
 
   // Determine which method of lockout we compile for
   #if LOCKOUT_OP_MODE_WIFI
@@ -164,7 +164,14 @@ void loop() {
   }
 
   pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
-  delay(SCAN_INTERVAL);
+  //delay(SCAN_INTERVAL);
+
+  #if LOCKOUT_OP_MODE_WIFI
+  // Check if door has been open for too long
+  if(door_status == door_open && (millis() / 1000) - time_of_door_open > door_open_time) {
+    lock_door();
+  }
+  #endif
 
   
 }
