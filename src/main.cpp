@@ -11,7 +11,7 @@
 
 /* Configuration variables */
 int SCAN_DURATION = 1; //In seconds
-uint32_t SCAN_INTERVAL = 1; // Time between scans in seconds
+uint32_t SCAN_INTERVAL = 1; // Time between scans in ms
 int RSSI_INC_THRESHOLD = 5; // If RSSI increases by this amount between pings, door should be opened
 int RSSI_DOOR_OVERRIDE = -70; // Threshold for RSSI to determine if door should be opened
 uint32_t door_open_time = 10; // Time in seconds that door should be open for
@@ -21,7 +21,7 @@ int previousRSSI = 0; // Allow for us to track if RSSI is increasing (Stronger s
 int currentRSSI = 0;
 uint8_t door_status = door_closed; // 0x00 = closed, 0x01 = open
 uint32_t time_of_door_open = 0; // Time in seconds that door was opened
-bool lockout_engaged = false;
+uint8_t lockout_engaged = 0;
 uint32_t consecutiveFalsePings = 0;
 
 BLEScan* pBLEScan;
@@ -73,9 +73,9 @@ void setup() {
   Serial.println("Ellie Door running.");
 
   // Set up relay pin
-  pinMode(RELAY_PIN, OUTPUT);
+  //pinMode(RELAY_PIN, OUTPUT);
   // Set up button pin
-  pinMode(LOCKOUT_SWITCH_PIN, INPUT_PULLUP);
+  //pinMode(LOCKOUT_SWITCH_PIN, INPUT_PULLUP);
 
   //attachInterrupt(BUTTON_PIN, button_pressed, HIGH);
 
@@ -137,12 +137,12 @@ void loop() {
 
     if(currentRSSI > RSSI_DOOR_OVERRIDE) {
       //Serial.println("Ellie is close enough to open the door!");
-      if(lockout_engaged == false) {
+      if(lockout_engaged == 0) {
         unlock_door();
       } 
     } else if(previousRSSI != 0 and currentRSSI - previousRSSI > RSSI_INC_THRESHOLD) {
       //Serial.println("Ellie is getting closer!");
-      if(lockout_engaged == false) {
+      if(lockout_engaged == 0) {
         unlock_door();
       }
     } else if(previousRSSI != 0 and currentRSSI - previousRSSI < 0) {
@@ -201,10 +201,10 @@ void handle_webserver( void * parameter ) {
             // turns the GPIOs on and off
             if (header.indexOf("GET /26/on") >= 0) {
               Serial.println("Turning Lockout on");
-              lockout_engaged = true;
+              lockout_engaged = 1;
             } else if (header.indexOf("GET /26/off") >= 0) {
               Serial.println("Turning Lockout off");
-              lockout_engaged = false;
+              lockout_engaged = 0; //*((bool*) parameter)
             }
             
             // Display the HTML web page
@@ -219,16 +219,16 @@ void handle_webserver( void * parameter ) {
             client.println(".button2 {background-color: #555555;}</style></head>");
             
             // Web Page Heading
-            client.println("<body><h1>ESP32 Web Server</h1>");
+            client.println("<body><h1>Ellie Door Control</h1>");
             
             
             // If the output26State is off, it displays the ON button       
-            if (lockout_engaged==true) {
-              // Display current state, and ON/OFF buttons for GPIO 26  
+            if (lockout_engaged==0) {
+              // Display current state, and ON/OFF buttons for Lockout  
               client.println("<p>Lockout state: OFF </p>");
               client.println("<p><a href=\"/26/on\"><button class=\"button\">ON</button></a></p>");
             } else {
-              // Display current state, and ON/OFF buttons for GPIO 26  
+              // Display current state, and ON/OFF buttons for Lockout  
               client.println("<p>Lockout state: ON </p>");
               client.println("<p><a href=\"/26/off\"><button class=\"button button2\">OFF</button></a></p>");
             } 
@@ -255,7 +255,11 @@ void handle_webserver( void * parameter ) {
     Serial.println("");
   }
 
+  delay(5000);
+
   }
+
+
 }
 
 /* Runs on separate core
@@ -267,10 +271,10 @@ void handle_door_lock( void * parameter ) {
     // Lock door if lockout switch is closed (Locked)
     if(digitalRead(LOCKOUT_SWITCH_PIN) == LOCKOUT_SWITCH_LOCKED) {
       lock_door();
-      lockout_engaged = true;
+      lockout_engaged = 1;
     } else {
       // Lockout switch is open (Unlocked)
-      lockout_engaged = false;
+      lockout_engaged = 0;
 
       // Check if door has been open for too long
       if(door_status == door_open && (millis() / 1000) - time_of_door_open > door_open_time) {
