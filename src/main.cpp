@@ -213,6 +213,7 @@ void handle_webserver( void * parameter ) {
             if (header.indexOf("GET /26/on") >= 0) {
               Serial.println("Turning Lockout on");
               lockout_engaged = 1;
+              lock_door();
             } else if (header.indexOf("GET /26/off") >= 0) {
               Serial.println("Turning Lockout off");
               lockout_engaged = 0; //*((bool*) parameter)
