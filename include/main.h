@@ -1,4 +1,4 @@
-
+#define LOCKOUT_OP_MODE_WIFI 0 // 0 - Switch, 1 - WIFI
 
 // Define private macros
 #define RELAY_PIN 4 // Pin for relay
