@@ -23,6 +23,8 @@ uint8_t door_status = door_closed; // 0x00 = closed, 0x01 = open
 uint32_t time_of_door_open = 0; // Time in seconds that door was opened
 uint8_t lockout_engaged = 0;
 uint32_t consecutiveFalsePings = 0;
+uint32_t unlock_cycles = 0; // Number of times this has been unlocked
+unsigned long uptime = 0; // System uptime
 
 BLEScan* pBLEScan;
 TaskHandle_t door_lockout_task;
@@ -73,9 +75,9 @@ void setup() {
   Serial.println("Ellie Door running.");
 
   // Set up relay pin
-  pinMode(RELAY_PIN, OUTPUT);
+  //pinMode(RELAY_PIN, OUTPUT);
   // Set up button pin
-  pinMode(LOCKOUT_SWITCH_PIN, INPUT_PULLUP);
+  //pinMode(LOCKOUT_SWITCH_PIN, INPUT_PULLUP);
 
   //attachInterrupt(BUTTON_PIN, button_pressed, HIGH);
 
@@ -185,6 +187,7 @@ void handle_webserver( void * parameter ) {
 
     if (client) {                             // If a new client connects,
     currentTime = millis();
+    uptime = currentTime / 1000 / 60 / 60; // Hours
     previousTime = currentTime;
     Serial.println("New Client.");          // print a message out in the serial port
     String currentLine = "";                // make a String to hold incoming data from the client
@@ -239,6 +242,9 @@ void handle_webserver( void * parameter ) {
               client.println("<p>Lockout state: ON </p>");
               client.println("<p><a href=\"/26/off\"><button class=\"button button2\">OFF</button></a></p>");
             } 
+
+            client.println("<p>Uptime: " + String(uptime / 24) + " days " + String(uptime) + " hours </p>");
+            client.println("<p>Unlock cycles: " + String(unlock_cycles) + "</p>");
                
             client.println("</body></html>");
             
@@ -301,6 +307,7 @@ void unlock_door(){
     digitalWrite(RELAY_PIN, HIGH);
     time_of_door_open = millis() / 1000;
     door_status = door_open;
+    unlock_cycles++;
   } 
   
   return;
