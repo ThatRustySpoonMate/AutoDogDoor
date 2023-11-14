@@ -9,7 +9,7 @@
 
 /* Define Global Vars */
 
-/* Configuration variables */
+/* Configuration variables - not const as they I may add support for editing them via webpage */
 int SCAN_DURATION = 1; //In seconds
 uint32_t SCAN_INTERVAL = 1; // Time between scans in ms
 int RSSI_INC_THRESHOLD = 5; // If RSSI increases by this amount between pings, door should be opened
@@ -26,7 +26,10 @@ uint32_t consecutiveFalsePings = 0;
 uint32_t unlock_cycles = 0; // Number of times this has been unlocked
 unsigned long uptime = 0; // System uptime
 
+// BLE Object
 BLEScan* pBLEScan;
+
+
 TaskHandle_t door_lockout_task;
 
 // Flags when ellie beacon is found
@@ -35,9 +38,7 @@ bool pinged = false;
 
 /* WIFI Variables */
 TaskHandle_t webserver_task;
-
 WiFiServer server(80); // Create server on port 80
-
 String header; // To store HTTP request
 
 // Current time
