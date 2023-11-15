@@ -25,6 +25,7 @@ uint8_t lockout_engaged = 0;
 uint32_t consecutiveFalsePings = 0;
 uint32_t unlock_cycles = 0; // Number of times this has been unlocked
 unsigned long uptime = 0; // System uptime
+float coreTemp;
 
 // BLE Object
 BLEScan* pBLEScan;
@@ -54,7 +55,7 @@ void handle_door_lock( void * parameter );
 void handle_webserver( void * parameter );
 void unlock_door();
 void lock_door();
-//void IRAM_ATTR button_pressed();
+void getCoreTemp();
 
 /* Define class for BLE */
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
@@ -79,8 +80,6 @@ void setup() {
   pinMode(RELAY_PIN, OUTPUT);
   // Set up button pin
   pinMode(LOCKOUT_SWITCH_PIN, INPUT_PULLUP);
-
-  //attachInterrupt(BUTTON_PIN, button_pressed, HIGH);
 
   BLEDevice::init("");
   pBLEScan = BLEDevice::getScan(); //create new scan
@@ -130,7 +129,20 @@ void setup() {
 
 }
 
+void getCoreTemp() {
+  static float tempCoreTemp;
+
+  tempCoreTemp = temperatureRead();
+  if(tempCoreTemp < 53.3 || tempCoreTemp > 53.4) {
+    coreTemp = tempCoreTemp;
+  }
+
+  return;
+}
+
 void loop() {
+  
+  getCoreTemp();
 
   BLEScanResults foundDevices = pBLEScan->start(SCAN_DURATION, false);
   
@@ -247,6 +259,7 @@ void handle_webserver( void * parameter ) {
 
             client.println("<p>Uptime: " + String(uptime / 24) + " days " + String(uptime) + " hours </p>");
             client.println("<p>Unlock cycles: " + String(unlock_cycles) + "</p>");
+            client.println("<p>Core temp:  " + String(coreTemp) + "c</p>");
                
             client.println("</body></html>");
             
@@ -324,10 +337,3 @@ void lock_door() {
 
   return;
 }
-
-
-/** Interrupt approach
-void IRAM_ATTR button_pressed() {
-  Serial.println("Button Pressed!");
-} 
-*/
