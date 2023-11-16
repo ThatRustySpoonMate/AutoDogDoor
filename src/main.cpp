@@ -24,7 +24,8 @@ uint32_t time_of_door_open = 0; // Time in seconds that door was opened
 uint8_t lockout_engaged = 0;
 uint32_t consecutiveFalsePings = 0;
 uint32_t unlock_cycles = 0; // Number of times this has been unlocked
-unsigned long uptime = 0; // System uptime
+unsigned long uptime_hours = 0; // System uptime
+unsigned long uptime_days = 0; // System uptime
 float coreTemp;
 
 // BLE Object
@@ -200,7 +201,8 @@ void handle_webserver( void * parameter ) {
 
     if (client) {                             // If a new client connects,
     currentTime = millis();
-    uptime = currentTime / 1000 / 60 / 60; // Hours
+    uptime_days = currentTime / 1000 / 60 / 60 / 24; // Days
+    uptime_hours = (currentTime / 1000 / 60 / 60) - (uptime_days * 24); // Hours
     previousTime = currentTime;
     Serial.println("New Client.");          // print a message out in the serial port
     String currentLine = "";                // make a String to hold incoming data from the client
@@ -249,15 +251,15 @@ void handle_webserver( void * parameter ) {
             // If the output26State is off, it displays the ON button       
             if (lockout_engaged==0) {
               // Display current state, and ON/OFF buttons for Lockout  
-              client.println("<p>Lockout state: OFF </p>");
-              client.println("<p><a href=\"/26/on\"><button class=\"button\">ON</button></a></p>");
+              client.println("<p>Lockout state: UNLOCKED </p>");
+              client.println("<p><a href=\"/26/on\"><button class=\"button\">LOCK</button></a></p>");
             } else {
               // Display current state, and ON/OFF buttons for Lockout  
-              client.println("<p>Lockout state: ON </p>");
-              client.println("<p><a href=\"/26/off\"><button class=\"button button2\">OFF</button></a></p>");
+              client.println("<p>Lockout state: LOCKED </p>");
+              client.println("<p><a href=\"/26/off\"><button class=\"button button2\">UNLOCK</button></a></p>");
             } 
 
-            client.println("<p>Uptime: " + String(uptime / 24) + " days " + String(uptime) + " hours </p>");
+            client.println("<p>Uptime: " + String(uptime_days) + " days " + String(uptime_hours) + " hours </p>");
             client.println("<p>Unlock cycles: " + String(unlock_cycles) + "</p>");
             client.println("<p>Core temp:  " + String(coreTemp) + "c</p>");
                
