@@ -78,9 +78,9 @@ void setup() {
   Serial.println("Ellie Door running.");
 
   // Set up relay pin
-  //pinMode(RELAY_PIN, OUTPUT);
+  pinMode(RELAY_PIN, OUTPUT);
   // Set up button pin
-  //pinMode(LOCKOUT_SWITCH_PIN, INPUT_PULLUP);
+  pinMode(LOCKOUT_SWITCH_PIN, INPUT_PULLUP);
 
   BLEDevice::init("");
   pBLEScan = BLEDevice::getScan(); //create new scan
