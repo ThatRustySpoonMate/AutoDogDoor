@@ -5,7 +5,7 @@
 #include <BLEAdvertisedDevice.h>
 #include <WiFi.h>
 #include "main.h"
-#include "NetworkCredentials.h"
+#include "eepromHandler.hpp"
 
 /* Define Global Vars */
 
@@ -78,9 +78,9 @@ void setup() {
   Serial.println("Ellie Door running.");
 
   // Set up relay pin
-  pinMode(RELAY_PIN, OUTPUT);
+  //pinMode(RELAY_PIN, OUTPUT);
   // Set up button pin
-  pinMode(LOCKOUT_SWITCH_PIN, INPUT_PULLUP);
+  //pinMode(LOCKOUT_SWITCH_PIN, INPUT_PULLUP);
 
   BLEDevice::init("");
   pBLEScan = BLEDevice::getScan(); //create new scan
@@ -93,15 +93,94 @@ void setup() {
   Serial.print("CPU: "); Serial.print(getCpuFrequencyMhz()); Serial.println("MHz");
   Serial.print("APB: "); Serial.print(getApbFrequency()); Serial.println("Hz");
 
+  EEPROM.begin(512);
+
+  String ssid = "";
+  String password = "";
+
+  char ssid_processed[100];
+  char password_processed[100];
+
+
   // Determine which method of lockout we compile for
   #if LOCKOUT_OP_MODE_WIFI
+  uint32_t time_of_wifi_prompt = millis();
+  bool forceWifiCredentials = false;
+
+  Serial.println("Would you like to enter new WIFI Credentials? (y/N)");
+  // Wait 5s for user input
+  while(time_of_wifi_prompt + 5000 > millis()) {
+    if( Serial.available() > 0) {
+      uint8_t conf = Serial.read();
+
+      if(conf == 'y') {
+        forceWifiCredentials = true;
+        break;
+      } else if(conf == 'n') {
+        break;
+      }
+    }
+  }
+
+  
+  // Attempt to read SSID from EEPROM
+  if(checkForEEPROMData() == 0xff || forceWifiCredentials) {
+
+    Serial.println("---Unable to find WIFI credentials in storage---");
+
+    // Get WIFI SSID from user
+    Serial.println("Please enter your WiFi SSID: ");
+    // Wait for data
+    while(Serial.available() == 0) {
+      delay(1);
+    }
+
+    // Read the SSID into the variable
+    ssid = Serial.readStringUntil('\n');
+
+    // Get WIFI password from user
+    Serial.println("Please enter your WiFI Password: ");
+    // Wait for data
+    while(Serial.available() == 0) {
+      delay(1);
+    }
+
+    // Read the Password into the variable
+    password = Serial.readStringUntil('\n');
+
+    // Wifi.begin requires c-strings, create them from string objects
+    ssid.toCharArray(ssid_processed, ssid.length());
+    password.toCharArray(password_processed, password.length());
+  } else {
+    // Retrieve SSID and Password from EEPROM
+    ssid = readStringFromEEPROM(WIFI_SSID_EEP_ADDR);
+    password = readStringFromEEPROM(WIFI_PWD_EEP_ADDR);
+    Serial.println("---Located WIFI credentials in storage---");
+
+    Serial.print("SSID: ");
+    Serial.println(ssid);
+
+    Serial.print("Password: ");
+    Serial.println(password);
+
+    // Wifi.begin requires c-strings, create them from string objects
+    ssid.toCharArray(ssid_processed, ssid.length());
+    password.toCharArray(password_processed, password.length());
+  }
+
   Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
+  Serial.println( ssid );
+
+  WiFi.begin(ssid_processed, password_processed);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
+
+  // Store uname and pwd to EEPROM
+  writeStringToEEPROM(WIFI_SSID_EEP_ADDR, ssid);
+  writeStringToEEPROM(WIFI_PWD_EEP_ADDR, password);
+
   // Print local IP address and start web server
   Serial.println("");
   Serial.println("WiFi connected.");
