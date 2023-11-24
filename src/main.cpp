@@ -157,12 +157,6 @@ void setup() {
     password = readStringFromEEPROM(WIFI_PWD_EEP_ADDR);
     Serial.println("---Located WIFI credentials in storage---");
 
-    Serial.print("SSID: ");
-    Serial.println(ssid);
-
-    Serial.print("Password: ");
-    Serial.println(password);
-
     // Wifi.begin requires c-strings, create them from string objects
     ssid.toCharArray(ssid_processed, ssid.length());
     password.toCharArray(password_processed, password.length());
