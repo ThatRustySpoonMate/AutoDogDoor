@@ -4,7 +4,7 @@
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
 #include <WiFi.h>
-#include "main.h"
+#include "main.hpp"
 #include "eepromHandler.hpp"
 
 /* Define Global Vars */
@@ -19,9 +19,9 @@ uint32_t door_open_time = 10; // Time in seconds that door should be open for
 /* Temporal variables */
 int previousRSSI = 0; // Allow for us to track if RSSI is increasing (Stronger signal = Ellie closer)
 int currentRSSI = 0;
-uint8_t door_status = door_closed; // 0x00 = closed, 0x01 = open
+DOORSTATUS door_status = door_closed; // 0x00 = closed, 0x01 = open
+DOORLOCKSTATE doorLockState = door_unlocked;  
 uint32_t time_of_door_open = 0; // Time in seconds that door was opened
-uint8_t lockout_engaged = 0;
 uint32_t consecutiveFalsePings = 0;
 uint32_t unlock_cycles = 0; // Number of times this has been unlocked
 unsigned long uptime_hours = 0; // System uptime
@@ -54,9 +54,11 @@ const long timeoutTime = 2000;
 /* Declare Functions */
 void handle_door_lock( void * parameter );
 void handle_webserver( void * parameter );
-void unlock_door();
-void lock_door();
-void getCoreTemp();
+void open_door();
+void close_door();
+void unlock_door(DOORLOCKSTATE dls);
+void lock_door(DOORLOCKSTATE dls);
+void get_core_temp();
 
 /* Define class for BLE */
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
@@ -102,8 +104,6 @@ void setup() {
   char password_processed[100];
 
 
-  // Determine which method of lockout we compile for
-  #if LOCKOUT_OP_MODE_WIFI
   uint32_t time_of_wifi_prompt = millis();
   bool forceWifiCredentials = false;
 
@@ -190,50 +190,36 @@ void setup() {
       0,  /* Priority of the task */
       &webserver_task,  /* Task handle. */
       0); /* Core where the task should run */
-  #else
+
   xTaskCreatePinnedToCore(
       handle_door_lock, /* Function to implement the task */
-      "HDL", /* Name of the task */
-      10000,  /* Stack size in words */
+      "hdl_sw", /* Name of the task */
+      5000,  /* Stack size in words */
       NULL,  /* Task input parameter */
       0,  /* Priority of the task */
       &door_lockout_task,  /* Task handle. */
       0); /* Core where the task should run */
-  #endif
-
 }
 
-void getCoreTemp() {
-  static float tempCoreTemp;
-
-  tempCoreTemp = temperatureRead();
-  if(tempCoreTemp < 53.3 || tempCoreTemp > 53.4) {
-    coreTemp = tempCoreTemp;
-  }
-
-  return;
-}
 
 void loop() {
   
-  getCoreTemp();
+  get_core_temp();
 
   BLEScanResults foundDevices = pBLEScan->start(SCAN_DURATION, false);
   
   if(pinged) { // Ellie beacon was located
-    Serial.print("Previous RSSI: "); Serial.println(previousRSSI);
-    Serial.print("Current RSSI: "); Serial.println(currentRSSI);
+    //Serial.print("Previous RSSI: "); Serial.println(previousRSSI);
+    //Serial.print("Current RSSI: "); Serial.println(currentRSSI);
 
     if(currentRSSI > RSSI_DOOR_OVERRIDE) {
       //Serial.println("Ellie is close enough to open the door!");
-      if(lockout_engaged == 0) {
-        unlock_door();
-      } 
+      open_door();
+      
     } else if(previousRSSI != 0 and currentRSSI - previousRSSI > RSSI_INC_THRESHOLD) {
       //Serial.println("Ellie is getting closer!");
-      if(lockout_engaged == 0) {
-        unlock_door();
-      }
+      open_door();
+      
     } else if(previousRSSI != 0 and currentRSSI - previousRSSI < 0) {
       //Serial.println("Ellie is getting further away!");
       asm("nop");
@@ -253,16 +239,9 @@ void loop() {
   }
 
   pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
-  //delay(SCAN_INTERVAL);
 
-  #if LOCKOUT_OP_MODE_WIFI
-  // Check if door has been open for too long
-  if(door_status == door_open && (millis() / 1000) - time_of_door_open > door_open_time) {
-    lock_door();
-  }
-  #endif
+  delay(SCAN_INTERVAL);
 
-  
 }
 
 
@@ -299,11 +278,11 @@ void handle_webserver( void * parameter ) {
             // turns the GPIOs on and off
             if (header.indexOf("GET /26/on") >= 0) {
               Serial.println("Turning Lockout on");
-              lockout_engaged = 1;
-              lock_door();
+              lock_door(door_locked_wifi);
+              close_door();
             } else if (header.indexOf("GET /26/off") >= 0) {
               Serial.println("Turning Lockout off");
-              lockout_engaged = 0; //*((bool*) parameter)
+              unlock_door(door_locked_wifi); //*((bool*) parameter)
             }
             
             // Display the HTML web page
@@ -322,9 +301,13 @@ void handle_webserver( void * parameter ) {
             
             
             // If the output26State is off, it displays the ON button       
-            if (lockout_engaged==0) {
+            if (doorLockState==door_unlocked) {
               // Display current state, and ON/OFF buttons for Lockout  
               client.println("<p>Lockout state: UNLOCKED </p>");
+              client.println("<p><a href=\"/26/on\"><button class=\"button\">LOCK</button></a></p>");
+            } else if (doorLockState==door_locked_switch) {
+              // Display current state, and ON/OFF buttons for Lockout  
+              client.println("<p>Lockout state: LOCKED (By Switch) </p>");
               client.println("<p><a href=\"/26/on\"><button class=\"button\">LOCK</button></a></p>");
             } else {
               // Display current state, and ON/OFF buttons for Lockout  
@@ -358,7 +341,7 @@ void handle_webserver( void * parameter ) {
     Serial.println("");
   }
 
-  delay(5000);
+  delay(3000);
 
   }
 
@@ -373,27 +356,29 @@ void handle_door_lock( void * parameter ) {
   for(;;) {
     // Lock door if lockout switch is closed (Locked)
     if(digitalRead(LOCKOUT_SWITCH_PIN) == LOCKOUT_SWITCH_LOCKED) {
-      lock_door();
-      lockout_engaged = 1;
+      close_door();
+      lock_door(door_locked_switch);
     } else {
       // Lockout switch is open (Unlocked)
-      lockout_engaged = 0;
+      unlock_door(door_locked_switch);
 
       // Check if door has been open for too long
       if(door_status == door_open && (millis() / 1000) - time_of_door_open > door_open_time) {
-        lock_door();
+        close_door();
       }
     }
+
+    delay(200);
+    
   }
 }
 
 
+// Allows ellie to go through the door
+void open_door(){
 
-void unlock_door(){
-
-  if(door_status == door_closed) {
+  if(door_status == door_closed && doorLockState == door_unlocked) {
     // Open door
-    //Serial.println("Unlocking door!");
     digitalWrite(RELAY_PIN, HIGH);
     time_of_door_open = millis() / 1000;
     door_status = door_open;
@@ -403,12 +388,49 @@ void unlock_door(){
   return;
 }
 
-void lock_door() {
-  //Serial.println("Locking door!");
+// Stops ellie from going through
+void close_door() {
 
   digitalWrite(RELAY_PIN, LOW);
   time_of_door_open = 0;
   door_status = door_closed;
+
+  return;
+}
+
+void lock_door(DOORLOCKSTATE dls) {
+  // Handle flagging the source of the door lock
+  if(doorLockState == door_unlocked) {
+    doorLockState = dls;
+  } else if (doorLockState != dls) {
+    doorLockState = door_locked_both;
+  }
+
+  return;
+}
+
+// This func will return if already unlocked
+void unlock_door(DOORLOCKSTATE dls) {
+  // Handling clearing of locks
+  if(doorLockState == dls) {
+    doorLockState = door_unlocked;
+  } else if(doorLockState == door_locked_both) {
+    if(dls == door_locked_switch) {
+      doorLockState = door_locked_wifi;
+    } else {
+      doorLockState = door_locked_switch;
+    }
+  }
+  return;
+}
+
+void get_core_temp() {
+  static float tempCoreTemp;
+
+  tempCoreTemp = temperatureRead();
+  if(tempCoreTemp < 53.3 || tempCoreTemp > 53.4) {
+    coreTemp = tempCoreTemp;
+  }
 
   return;
 }
