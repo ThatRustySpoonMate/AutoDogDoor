@@ -66,6 +66,6 @@ String readStringFromEEPROM(uint32_t addrOffset){
     return String(data);
 }
 
-uint8_t checkForEEPROMData(){
-    return EEPROM.read(WIFI_SSID_EEP_ADDR);
+uint8_t checkForEEPROMData(uint32_t address){
+    return EEPROM.read(address);
 }

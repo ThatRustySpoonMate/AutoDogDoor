@@ -27,6 +27,8 @@ uint32_t unlock_cycles = 0; // Number of times this has been unlocked
 unsigned long uptime_hours = 0; // System uptime
 unsigned long uptime_days = 0; // System uptime
 float coreTemp;
+char BLEDogName[100]; // Name registered in dog's BLE beacon - could make this an array of strings and check each one
+String BLEDogNameTemp;
 
 // BLE Object
 BLEScan* pBLEScan;
@@ -63,7 +65,7 @@ void get_core_temp();
 /* Define class for BLE */
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     void onResult(BLEAdvertisedDevice advertisedDevice) {
-      if(advertisedDevice.getName() == "Ellie") {
+      if(advertisedDevice.getName() == BLEDogName) {
         currentRSSI = advertisedDevice.getRSSI();
         pinged = true;
         consecutiveFalsePings = 0;
@@ -77,7 +79,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
-  Serial.println("Ellie Door running.");
+  Serial.println("Ellie Door starting.");
 
   // Set up relay pin
   pinMode(RELAY_PIN, OUTPUT);
@@ -97,6 +99,53 @@ void setup() {
 
   EEPROM.begin(512);
 
+  // Ensure we have name of dog to start with
+  bool requestNewName = false;
+  if(checkForEEPROMData(DOG_NAME_EEP_ADDR) == 0xff) {
+    requestNewName = true;
+    // Dog name not stored in EEPROM
+    Serial.println("---Unable to find BLE Beacon name in storage---");
+
+  } else { // Located BLE Dog name
+    uint32_t time_of_BLEName_prompt = millis();
+    BLEDogNameTemp = readStringFromEEPROM(DOG_NAME_EEP_ADDR);
+    Serial.println("Test");
+    Serial.println("Found BLE Name '"); Serial.print(BLEDogNameTemp); Serial.println("' - Would you like to change this? (y/N)");
+    Serial.println("Test");
+
+    // Wait 5s for user input
+    while(time_of_BLEName_prompt + 5000 > millis()) {
+      if( Serial.available() > 0) {
+        uint8_t conf = Serial.read();
+
+        if(conf == 'y') {
+          requestNewName = true;
+          break;
+        } else if(conf == 'n') {
+          requestNewName = false;
+          break;
+        }
+      }
+    }
+  }
+
+  if(requestNewName) {
+    Serial.println("Please enter the name of the dog's BLE Beacon as it appears in bluetooth: ");
+
+    while(Serial.available() == 0) {
+      delay(1);
+    }
+
+    // Read the SSID into the variable
+    BLEDogNameTemp = Serial.readStringUntil('\n');//.c_str();
+
+    writeStringToEEPROM(DOG_NAME_EEP_ADDR, BLEDogNameTemp);
+  }
+
+  memcpy(BLEDogName, BLEDogNameTemp.c_str(), strlen(BLEDogNameTemp.c_str()) -1 ); // Copy string to c-str and remove trailing charater 
+
+
+  // Wifi vars
   String ssid = "";
   String password = "";
 
@@ -124,7 +173,7 @@ void setup() {
 
   
   // Attempt to read SSID from EEPROM
-  if(checkForEEPROMData() == 0xff || forceWifiCredentials) {
+  if(checkForEEPROMData(WIFI_SSID_EEP_ADDR) == 0xff || forceWifiCredentials) {
 
     Serial.println("---Unable to find WIFI credentials in storage---");
 
@@ -199,11 +248,14 @@ void setup() {
       0,  /* Priority of the task */
       &door_lockout_task,  /* Task handle. */
       0); /* Core where the task should run */
+
+
+  Serial.println("Startup has finished.");
 }
 
 
 void loop() {
-  
+
   get_core_temp();
 
   BLEScanResults foundDevices = pBLEScan->start(SCAN_DURATION, false);
