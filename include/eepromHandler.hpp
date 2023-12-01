@@ -9,3 +9,5 @@ void readStringFromEEPROM(uint32_t addrOffset, char *string);
 String readStringFromEEPROM(uint32_t addrOffset);
 void writeStringToEEPROM(uint32_t addrOffset, const String &str);
 uint8_t checkForEEPROMData(uint32_t address);
+void clearEEPROM(uint16_t addr_l = 0, uint16_t addr_h = 4096);
+void initEEPROM(uint16_t size);

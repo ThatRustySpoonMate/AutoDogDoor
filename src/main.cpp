@@ -97,11 +97,12 @@ void setup() {
   Serial.print("CPU: "); Serial.print(getCpuFrequencyMhz()); Serial.println("MHz");
   Serial.print("APB: "); Serial.print(getApbFrequency()); Serial.println("Hz");
 
-  EEPROM.begin(512);
+  initEEPROM(512);
+  
 
   // Ensure we have name of dog to start with
   bool requestNewName = false;
-  if(checkForEEPROMData(DOG_NAME_EEP_ADDR) == 0xff) {
+  if(checkForEEPROMData(DOG_NAME_EEP_ADDR) == 0x00) {
     requestNewName = true;
     // Dog name not stored in EEPROM
     Serial.println("---Unable to find BLE Beacon name in storage---");
@@ -109,9 +110,8 @@ void setup() {
   } else { // Located BLE Dog name
     uint32_t time_of_BLEName_prompt = millis();
     BLEDogNameTemp = readStringFromEEPROM(DOG_NAME_EEP_ADDR);
-    Serial.println("Test");
-    Serial.println("Found BLE Name '"); Serial.print(BLEDogNameTemp); Serial.println("' - Would you like to change this? (y/N)");
-    Serial.println("Test");
+
+    Serial.print("Found BLE Name '"); Serial.print(BLEDogNameTemp); Serial.println("' - Would you like to change this? (y/N)");
 
     // Wait 5s for user input
     while(time_of_BLEName_prompt + 5000 > millis()) {
@@ -173,7 +173,7 @@ void setup() {
 
   
   // Attempt to read SSID from EEPROM
-  if(checkForEEPROMData(WIFI_SSID_EEP_ADDR) == 0xff || forceWifiCredentials) {
+  if(checkForEEPROMData(WIFI_SSID_EEP_ADDR) == 0x00 || forceWifiCredentials) {
 
     Serial.println("---Unable to find WIFI credentials in storage---");
 
@@ -261,8 +261,8 @@ void loop() {
   BLEScanResults foundDevices = pBLEScan->start(SCAN_DURATION, false);
   
   if(pinged) { // Ellie beacon was located
-    //Serial.print("Previous RSSI: "); Serial.println(previousRSSI);
-    //Serial.print("Current RSSI: "); Serial.println(currentRSSI);
+    Serial.print("Previous RSSI: "); Serial.println(previousRSSI);
+    Serial.print("Current RSSI: "); Serial.println(currentRSSI);
 
     if(currentRSSI > RSSI_DOOR_OVERRIDE) {
       //Serial.println("Ellie is close enough to open the door!");
@@ -393,7 +393,7 @@ void handle_webserver( void * parameter ) {
     Serial.println("");
   }
 
-  delay(3000);
+  delay(5000);
 
   }
 
