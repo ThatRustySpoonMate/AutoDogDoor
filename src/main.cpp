@@ -421,7 +421,7 @@ void handle_webserver( void * parameter ) {
     Serial.println("");
   }
 
-  delay(3000);
+  delay(5000);
 
   }
 
