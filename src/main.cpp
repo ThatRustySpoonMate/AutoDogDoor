@@ -13,7 +13,7 @@
 int SCAN_DURATION = 1; //In seconds
 uint32_t SCAN_INTERVAL = 1; // Time between scans in ms
 int RSSI_INC_THRESHOLD = 5; // If RSSI increases by this amount between pings, door should be opened
-int RSSI_DOOR_OVERRIDE = -70; // Threshold for RSSI to determine if door should be opened
+int RSSI_DOOR_OVERRIDE = -78; // Threshold for RSSI to determine if door should be opened
 uint32_t door_open_time = 10; // Time in seconds that door should be open for
 
 /* Temporal variables */
@@ -93,7 +93,7 @@ void setup() {
   pBLEScan->setInterval(100);
   pBLEScan->setWindow(99);  // less or equal setInterval value
 
-  setCpuFrequencyMhz(80);
+  setCpuFrequencyMhz(240);
   Serial.print("CPU: "); Serial.print(getCpuFrequencyMhz()); Serial.println("MHz");
   Serial.print("APB: "); Serial.print(getApbFrequency()); Serial.println("Hz");
 
@@ -270,7 +270,8 @@ void loop() {
       
     } else if(previousRSSI != 0 and currentRSSI - previousRSSI > RSSI_INC_THRESHOLD) {
       //Serial.println("Ellie is getting closer!");
-      open_door();
+      //open_door();
+      asm("nop");
       
     } else if(previousRSSI != 0 and currentRSSI - previousRSSI < 0) {
       //Serial.println("Ellie is getting further away!");
@@ -328,13 +329,23 @@ void handle_webserver( void * parameter ) {
             client.println();
             
             // turns the GPIOs on and off
-            if (header.indexOf("GET /26/on") >= 0) {
+            if (header.indexOf("GET /lock/on") >= 0) {
               Serial.println("Turning Lockout on");
               lock_door(door_locked_wifi);
               close_door();
-            } else if (header.indexOf("GET /26/off") >= 0) {
+            } else if (header.indexOf("GET /lock/off") >= 0) {
               Serial.println("Turning Lockout off");
               unlock_door(door_locked_wifi); //*((bool*) parameter)
+            }
+            // RSSI (sensitivity) controls
+            if (header.indexOf("GET /rssi/inc") >= 0) {
+              RSSI_DOOR_OVERRIDE++;
+            } else if (header.indexOf("GET /rssi/dec") >= 0) {
+              RSSI_DOOR_OVERRIDE--;
+            }
+
+            if (header.indexOf("GET /door/open") >= 0) {
+              open_door();
             }
             
             // Display the HTML web page
@@ -350,23 +361,40 @@ void handle_webserver( void * parameter ) {
             
             // Web Page Heading
             client.println("<body><h1>Ellie Door Control</h1>");
+
+            client.println("<h2>Door Control</h2>");
             
-            
-            // If the output26State is off, it displays the ON button       
+            // If the outputlockState is off, it displays the ON button       
             if (doorLockState==door_unlocked) {
               // Display current state, and ON/OFF buttons for Lockout  
               client.println("<p>Lockout state: UNLOCKED </p>");
-              client.println("<p><a href=\"/26/on\"><button class=\"button\">LOCK</button></a></p>");
+              client.println("<a href=\"/lock/on\"><button class=\"button\">LOCK</button></a>");
+              // Opening the door
+              client.println("<a href=\"/door/open\"><button class=\"button\">OPEN</button></a>");
             } else if (doorLockState==door_locked_switch) {
               // Display current state, and ON/OFF buttons for Lockout  
               client.println("<p>Lockout state: LOCKED (By Switch) </p>");
-              client.println("<p><a href=\"/26/on\"><button class=\"button\">LOCK</button></a></p>");
+              client.println("<a href=\"/lock/on\"><button class=\"button\">LOCK</button></a>");
+              // Opening the door
+              client.println("<a href=\"/door/open\"><button class=\"button\" disabled>OPEN</button></a>");
             } else {
               // Display current state, and ON/OFF buttons for Lockout  
               client.println("<p>Lockout state: LOCKED </p>");
-              client.println("<p><a href=\"/26/off\"><button class=\"button button2\">UNLOCK</button></a></p>");
+              client.println("<a href=\"/lock/off\"><button class=\"button\">UNLOCK</button></a>");
+              // Opening the door
+              client.println("<a href=\"/door/open\"><button class=\"button button2\" disabled>OPEN</button></a>");
             } 
 
+            
+
+            // RSSI
+            client.println("<h2>Sensitivity</h2>");
+            client.println("<p>RSSI Threshold: " + String(RSSI_DOOR_OVERRIDE) + "</p>");
+            client.println("<a href=\"/rssi/inc\"><button class=\"button\">+1</button></a>");
+            client.println("<a href=\"/rssi/dec\"><button class=\"button\">-1</button></a>");
+            client.println("<p>Most recent RSSI: " + String(currentRSSI) + "</p>");
+
+            client.println("<h2>Stats</h2>");
             client.println("<p>Uptime: " + String(uptime_days) + " days " + String(uptime_hours) + " hours </p>");
             client.println("<p>Unlock cycles: " + String(unlock_cycles) + "</p>");
             client.println("<p>Core temp:  " + String(coreTemp) + "c</p>");
@@ -393,7 +421,7 @@ void handle_webserver( void * parameter ) {
     Serial.println("");
   }
 
-  delay(5000);
+  delay(3000);
 
   }
 
@@ -440,7 +468,7 @@ void open_door(){
   return;
 }
 
-// Stops ellie from going through
+// Stops ellie from going through the door
 void close_door() {
 
   digitalWrite(RELAY_PIN, LOW);
