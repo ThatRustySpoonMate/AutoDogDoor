@@ -13,7 +13,7 @@
 int SCAN_DURATION = 1; //In seconds
 uint32_t SCAN_INTERVAL = 1; // Time between scans in ms
 int RSSI_INC_THRESHOLD = 5; // If RSSI increases by this amount between pings, door should be opened
-int RSSI_DOOR_OVERRIDE = -70; // Threshold for RSSI to determine if door should be opened
+int RSSI_DOOR_OVERRIDE = -78; // Threshold for RSSI to determine if door should be opened
 uint32_t door_open_time = 10; // Time in seconds that door should be open for
 
 /* Temporal variables */
@@ -270,7 +270,8 @@ void loop() {
       
     } else if(previousRSSI != 0 and currentRSSI - previousRSSI > RSSI_INC_THRESHOLD) {
       //Serial.println("Ellie is getting closer!");
-      open_door();
+      //open_door();
+      asm("nop");
       
     } else if(previousRSSI != 0 and currentRSSI - previousRSSI < 0) {
       //Serial.println("Ellie is getting further away!");
