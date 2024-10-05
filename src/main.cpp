@@ -65,7 +65,8 @@ void get_core_temp();
 /* Define class for BLE */
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     void onResult(BLEAdvertisedDevice advertisedDevice) {
-      if(advertisedDevice.getName() == BLEDogName) {
+      
+      if(strcmp(advertisedDevice.getName().c_str(), BLEDogName) == 0) {
         currentRSSI = advertisedDevice.getRSSI();
         pinged = true;
         consecutiveFalsePings = 0;
