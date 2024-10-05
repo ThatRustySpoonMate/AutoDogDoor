@@ -7,13 +7,15 @@
 #include "main.hpp"
 #include "eepromHandler.hpp"
 
+#define WIFI_SETUP_TIMEOUT 20 // * 500ms
+
 /* Define Global Vars */
 
 /* Configuration variables - not const as they I may add support for editing them via webpage */
 int SCAN_DURATION = 1; //In seconds
 uint32_t SCAN_INTERVAL = 1; // Time between scans in ms
 int RSSI_INC_THRESHOLD = 5; // If RSSI increases by this amount between pings, door should be opened
-int RSSI_DOOR_OVERRIDE = -78; // Threshold for RSSI to determine if door should be opened
+int RSSI_DOOR_OVERRIDE = -60; // Threshold for RSSI to determine if door should be opened
 uint32_t door_open_time = 10; // Time in seconds that door should be open for
 
 /* Temporal variables */
@@ -44,6 +46,7 @@ bool pinged = false;
 TaskHandle_t webserver_task;
 WiFiServer server(80); // Create server on port 80
 String header; // To store HTTP request
+uint32_t wifiWaitCount = 0; // Timeout counter for connecting to WIFi
 
 // Current time
 unsigned long currentTime = millis();
@@ -86,13 +89,6 @@ void setup() {
   pinMode(RELAY_PIN, OUTPUT);
   // Set up button pin
   pinMode(LOCKOUT_SWITCH_PIN, INPUT_PULLUP);
-
-  BLEDevice::init("");
-  pBLEScan = BLEDevice::getScan(); //create new scan
-  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
-  pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
-  pBLEScan->setInterval(100);
-  pBLEScan->setWindow(99);  // less or equal setInterval value
 
   setCpuFrequencyMhz(80);
   Serial.print("CPU: "); Serial.print(getCpuFrequencyMhz()); Serial.println("MHz");
@@ -217,8 +213,13 @@ void setup() {
 
   WiFi.begin(ssid_processed, password_processed);
   while (WiFi.status() != WL_CONNECTED) {
+    if(wifiWaitCount > WIFI_SETUP_TIMEOUT) {
+      Serial.println("Wifi timeout reached, continuing without wifi");
+      break;
+    }
     delay(500);
     Serial.print(".");
+    wifiWaitCount++;
   }
 
   // Store uname and pwd to EEPROM
@@ -231,6 +232,13 @@ void setup() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
   server.begin();
+
+  BLEDevice::init("");
+  pBLEScan = BLEDevice::getScan(); //create new scan
+  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+  pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
+  pBLEScan->setInterval(100);
+  pBLEScan->setWindow(99);  // less or equal setInterval value
 
   xTaskCreatePinnedToCore(
       handle_webserver, /* Function to implement the task */
@@ -295,6 +303,8 @@ void loop() {
   pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
 
   delay(SCAN_INTERVAL);
+
+  /* TODO: add reconnect to WiFi attempt every minute if not currently connected to WiFi*/
 
 }
 
